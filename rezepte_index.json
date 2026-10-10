@@ -1,0 +1,65 @@
+{
+ "gesamt": 231637,
+ "teile": [
+  {
+   "datei": "rezepte_001.csv",
+   "anzahl": 20335,
+   "mb": 18.3
+  },
+  {
+   "datei": "rezepte_002.csv",
+   "anzahl": 20335,
+   "mb": 18.5
+  },
+  {
+   "datei": "rezepte_003.csv",
+   "anzahl": 20335,
+   "mb": 19.2
+  },
+  {
+   "datei": "rezepte_004.csv",
+   "anzahl": 20335,
+   "mb": 17.7
+  },
+  {
+   "datei": "rezepte_005.csv",
+   "anzahl": 20335,
+   "mb": 18.5
+  },
+  {
+   "datei": "rezepte_006.csv",
+   "anzahl": 20335,
+   "mb": 18.4
+  },
+  {
+   "datei": "rezepte_007.csv",
+   "anzahl": 20335,
+   "mb": 18.4
+  },
+  {
+   "datei": "rezepte_008.csv",
+   "anzahl": 20335,
+   "mb": 18.2
+  },
+  {
+   "datei": "rezepte_009.csv",
+   "anzahl": 20335,
+   "mb": 19.0
+  },
+  {
+   "datei": "rezepte_010.csv",
+   "anzahl": 20335,
+   "mb": 18.7
+  },
+  {
+   "datei": "rezepte_011.csv",
+   "anzahl": 20335,
+   "mb": 19.0
+  },
+  {
+   "datei": "rezepte_012.csv",
+   "anzahl": 7952,
+   "mb": 7.0
+  }
+ ]
+}
