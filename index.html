@@ -71,7 +71,7 @@ async function fetchPool(type,extra,kind){
   const go=async inc=>{
     const q=new URLSearchParams({apiKey:S.key,addRecipeNutrition:true,number:30,sort:'random',type,excludeIngredients:ex,...extra});
     if(inc)q.set('includeIngredients',inc);
-    const r=await fetch('https://api.spoonacular.com/recipes/complexSearch?'+q);
+    let r;try{r=await fetch('https://api.spoonacular.com/recipes/complexSearch?'+q)}catch(e){throw Error('Keine Verbindung zu Spoonacular. Bitte Internet prüfen und es erneut versuchen.')}
     if(r.status===402)throw Error('Das Tageslimit von Spoonacular ist erreicht. Morgen geht es wieder.');
     if(r.status===401||r.status===403)throw Error('Der API-Key ist ungültig. Bitte in den Einstellungen prüfen.');
     if(!r.ok)throw Error('Spoonacular-Fehler '+r.status);
@@ -83,7 +83,7 @@ async function fetchPool(type,extra,kind){
   if(res.length<8)res=await go('');
   return res.map(r=>({id:r.id,t:r.title,k:Math.round(nu(r,'Calories')),p:Math.round(nu(r,'Protein')),c:Math.round(nu(r,'Carbohydrates')),m:r.readyInMinutes,u:r.sourceUrl,
     i:(r.extendedIngredients||[]).map(x=>{const m=(x.measures&&x.measures.metric)||{};return{n:(x.name||'').toLowerCase(),a:Math.round((m.amount||0)*10)/10,u:m.unitShort||''}})}))
-   .filter(r=>r.i.length&&!r.i.some(x=>rx.test(x.n))&&(kind!=='s'||r.i.length<=7));
+   .filter(r=>r.i.length&&!r.i.some(x=>rx.test(x.n))&&(kind!=='s'||r.i.length<=10));
 }
 
 function boosts(m){
@@ -110,11 +110,13 @@ async function gen(){
   const b=$('#gen'),st=$('#st');b.disabled=true;st.textContent='Suche Rezepte …';
   try{
     const veg={diet:'vegetarian'};
-    const P={b:await fetchPool('breakfast',{...veg,minProtein:15,maxCalories:600},'b'),
-      s:await fetchPool('snack',{...veg,minProtein:8,maxCalories:350,maxReadyTime:15},'s'),
-      l:await fetchPool('main course',{minProtein:25,maxCalories:850},'l'),
-      d:await fetchPool('main course',{...veg,minProtein:25,maxCalories:850},'d')};
-    for(const k in P)if(P[k].length<4)throw Error('Zu wenige passende Rezepte gefunden. Versuche es später noch einmal oder lockere die Ziele.');
+    const pl=async(t,x,k)=>{let r=await fetchPool(t,x,k);if(r.length<6)r=await fetchPool(t,{...x,minProtein:0},k);return r};
+    const P={b:await pl('breakfast',{...veg,minProtein:10,maxCalories:650},'b'),
+      s:await pl('snack',{...veg,minProtein:5,maxCalories:400},'s'),
+      l:await pl('main course',{minProtein:20,maxCalories:900},'l'),
+      d:await pl('main course',{...veg,minProtein:20,maxCalories:900},'d')};
+    const n=`Frühstück ${P.b.length}, Snacks ${P.s.length}, Mittag ${P.l.length}, Abend ${P.d.length}`;
+    for(const k in P)if(P[k].length<3)throw Error('Zu wenige passende Rezepte gefunden ('+n+'). Bitte erneut versuchen.');
     const used=new Set(),days=[];
     for(let i=0;i<3;i++){const m=bestDay(P,used);m.forEach(r=>used.add(r.id));days.push({m,bo:boosts(m)})}
     S.pools=P;S.plan={t:Date.now(),days};save();render();
