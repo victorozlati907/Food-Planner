@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="de"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Essensplan">
+<meta name="theme-color" content="#EEF2EC"><title>Essensplan</title>
+<style>
+:root{--bg:#EEF2EC;--ink:#1D2B22;--mut:#5E6F64;--card:#fff;--ac:#0F6B5C;--p:#B8740F;--bad:#B3402F;--line:#D5DDD3}
+@media(prefers-color-scheme:dark){:root{--bg:#141C17;--ink:#E6EEE8;--mut:#93A59A;--card:#1E2822;--ac:#4DBBA5;--p:#E0A84A;--bad:#E27D6C;--line:#2E3B33}}
+*{box-sizing:border-box}html,body{margin:0}body{background:var(--bg);color:var(--ink);font:16px/1.4 -apple-system,BlinkMacSystemFont,"Avenir Next",system-ui,sans-serif;padding:env(safe-area-inset-top) 0 calc(72px + env(safe-area-inset-bottom))}
+main{max-width:650px;margin:auto;padding:12px 16px}.v{display:none}.v.on{display:block}h2{font-size:16px;margin:0 0 6px}.mut{color:var(--mut)}.sm{font-size:13px}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}.pro{font-size:36px;font-weight:700;color:var(--p)}.pro small{font-size:14px;font-weight:500;color:var(--mut)}.meal{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line)}.meal>div{min-width:0;flex:1}.sl{display:block;font-size:13px;color:var(--mut)}summary{font-weight:650;cursor:pointer;padding:3px 0}details p{margin:6px 0}button{font:inherit;color:inherit;cursor:pointer}.rr,.sec{min-height:42px;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:7px 12px}.pri{width:100%;min-height:48px;border:0;border-radius:12px;background:var(--ac);color:white;font-weight:650;padding:10px}.over{color:var(--bad);font-weight:700}.note{background:var(--card);border-left:4px solid var(--p);padding:10px 12px;border-radius:6px;font-size:14px;margin:10px 0}input[type=text],input[type=password],input[type=number],select{width:100%;min-height:42px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font:inherit}label.f{display:block;margin:12px 0 4px;font-size:14px;color:var(--mut)}.row{display:flex;gap:8px;align-items:center}.row>*{flex:1}.chip{display:inline-flex;align-items:center;gap:5px;background:var(--card);border:1px solid var(--line);border-radius:20px;padding:5px 7px 5px 11px;margin:4px}.chip button{border:0;background:none;font-size:18px}.it{display:grid;grid-template-columns:26px minmax(0,1fr) 90px 42px;gap:8px;align-items:center;min-height:54px;border-bottom:1px solid var(--line);padding:5px 0}.it input[type=checkbox]{width:20px;height:20px;accent-color:var(--ac)}.it .qty{min-height:38px}.it.d .iname{text-decoration:line-through;opacity:.6}nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:5}nav button{flex:1;min-height:56px;border:0;background:none;color:var(--mut);font-size:12px}nav button.on{color:var(--ac);font-weight:750}a{color:var(--ac)}.pill{display:inline-block;background:var(--bg);border-radius:99px;padding:3px 8px;font-size:12px}.smallbtn{padding:7px 10px;min-height:38px}.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:390px){.it{grid-template-columns:24px minmax(0,1fr) 76px 36px;gap:5px}}
+</style></head><body><main>
+<div id="v-plan" class="v on"></div><div id="v-pan" class="v"></div><div id="v-shop" class="v"></div><div id="v-set" class="v"></div>
+</main><nav><button data-t="plan" class="on">Plan</button><button data-t="pan">Vorrat</button><button data-t="shop">Einkaufsliste</button><button data-t="set">Einstellungen</button></nav>
+<script>
+/* GitHub Pages setup: place this file beside rezept_index.json and rezept_001.csv etc.
+   Shared Google Sheets sync: deploy the companion Apps Script as a Web App and paste its URL in Einstellungen. */
+const $=s=>document.querySelector(s), STORE='essensplan.v3';
+const defaults={kcal:2500,kmin:1800,carb:300,pmin:150,pmax:180,fav:'',excl:'onion,garlic,zwiebel,knoblauch',pantry:[],plan:null,checked:{},sheetUrl:'',syncKey:'',lastSync:'',syncStatus:''};
+let S;try{S={...defaults,...JSON.parse(localStorage.getItem(STORE)||'{}')}}catch(e){S={...defaults}}
+const save=()=>{try{localStorage.setItem(STORE,JSON.stringify(S))}catch(e){}};
+const esc=x=>String(x??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const norm=x=>String(x||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().trim();
+const DE={eier:'egg',ei:'egg',milch:'milk',quark:'cottage cheese',magerquark:'cottage cheese',skyr:'yogurt',joghurt:'yogurt',haferflocken:'oats',reis:'rice',kartoffeln:'potato',tomaten:'tomato',spinat:'spinach',linsen:'lentil',kichererbsen:'chickpea',tofu:'tofu',kaese:'cheese',käse:'cheese',haehnchen:'chicken',hähnchen:'chicken',lachs:'salmon',thunfisch:'tuna',brokkoli:'broccoli',paprika:'bell pepper',karotten:'carrot',zucchini:'zucchini',avocado:'avocado',nuesse:'nuts',nüsse:'nuts',olivenoel:'olive oil',olivenöl:'olive oil',feta:'feta',mozzarella:'mozzarella',bohnen:'beans',nudeln:'pasta',gurke:'cucumber',pilze:'mushroom',champignons:'mushroom',blumenkohl:'cauliflower',mandeln:'almond',banane:'banana',quinoa:'quinoa'};
+const en=w=>DE[norm(w)]||norm(w);
+const pantryNames=()=>S.pantry.map(x=>norm(x.name));
+const has=n=>pantryNames().some(p=>p && (norm(n).includes(p)||p.includes(norm(n))));
+const SKIP=/^(salt|water|pepper|black pepper|ice|ice cubes|sea salt|kosher salt|cooking spray|nonstick cooking spray)$/i;
+const slots=[['Frühstück','b'],['Snack 1','s'],['Mittagessen','l'],['Snack 2','s'],['Abendessen','d']];
+const KEY=['b','s','l','s','d'];
+let DB=[],DBERR='',manifest=[];
+function parseCSV(t){const rows=[];let row=[],f='',q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){f+='"';i++}else q=false}else f+=c}else if(c==='"')q=true;else if(c===','){row.push(f);f=''}else if(c==='\n'){row.push(f);rows.push(row);row=[];f=''}else if(c!=='\r')f+=c}if(f!==''||row.length){row.push(f);rows.push(row)}return rows}
+function csvRecipes(text,source){
+ const rows=parseCSV(text).filter(r=>r.some(x=>x.trim()!==''));
+ if(rows.length<2)return[];
+ const h=rows.shift().map(x=>norm(x));
+ const ix=(...names)=>h.findIndex(x=>names.includes(x));
+ const id=ix('id'),name=ix('name','title'),minutes=ix('minutes','time'),kcal=ix('kcal','calories'),protein=ix('protein','protein_g'),carbs=ix('carbs','carbohydrates','carbs_g'),fat=ix('fett','fat'),tags=ix('tags'),ing=ix('ingredients'),steps=ix('steps','instructions','method');
+ const tagSlots=tagText=>{
+   const t='|'+norm(tagText).replace(/[,;]/g,'|')+'|', out='';
+   let s='';
+   if(t.includes('|breakfast|')||t.includes('|brunch|'))s+='b';
+   if(t.includes('|snack|')||t.includes('|appetizer|')||t.includes('|appetizers|')||t.includes('|finger-food|'))s+='s';
+   if(t.includes('|lunch|')||t.includes('|main-dish|')||t.includes('|main-course|'))s+='l';
+   if(t.includes('|dinner|')||t.includes('|supper|'))s+='d';
+   // General-purpose recipes without a meal tag can be used as snacks.
+   if(!s)s='s';
+   return [...new Set(s)].join('');
+ };
+ return rows.map((r,i)=>{
+   const get=j=>j>=0?(r[j]||'').trim():'';
+   const ingList=get(ing).split('|').map(x=>x.trim()).filter(Boolean);
+   const tagText=get(tags);
+   return {
+     id:get(id)||source+'-'+i,
+     t:get(name)||'Rezept '+(i+1),
+     m:+get(minutes)||0,
+     k:+get(kcal)||0,
+     p:+get(protein)||0,
+     c:+get(carbs)||0,
+     fat:+get(fat)||0,
+     sl:tagSlots(tagText),
+     tags:tagText.split('|').map(norm),
+     i:ingList,
+     s:get(steps),
+     url:'',
+     source
+   };
+ }).filter(r=>r.t&&r.i.length);
+}
+async function loadDB(){
+ DB=[];DBERR='';
+ try{
+   const r=await fetch('./rezept_index.json',{cache:'no-store'});
+   if(!r.ok)throw Error('rezept_index.json konnte nicht geladen werden (HTTP '+r.status+').');
+   const mf=await r.json();
+   if(!Array.isArray(mf.teile)||!mf.teile.length)throw Error('Der Rezeptindex enthält keine Liste "teile".');
+   // Die CSV-Dateien sind zusammen über 200 MB groß. Auf iPad/Pages nicht alle
+   // auf einmal laden; stattdessen eine zufällige Teil-Datei mit ca. 8–20 MB.
+   const file=mf.teile[Math.floor(Math.random()*mf.teile.length)].datei;
+   const resp=await fetch('./'+file,{cache:'no-store'});
+   if(!resp.ok)throw Error(file+' konnte nicht geladen werden (HTTP '+resp.status+').');
+   const text=await resp.text();
+   DB=csvRecipes(text,file);
+   if(!DB.length)throw Error('Keine Rezepte aus '+file+' erkannt. Prüfe die CSV-Kopfzeile.');
+   DBERR='';
+ }catch(e){DBERR=e.message||'Rezeptdateien konnten nicht geladen werden.'}
+ render();
+}
+const total=(meals,fs)=>meals.reduce((o,r,j)=>({k:o.k+r.k*fs[j],p:o.p+r.p*fs[j],c:o.c+r.c*fs[j]}),{k:0,p:0,c:0});
+const penalty=t=>(t.p<S.pmin?(S.pmin-t.p)*4:0)+(t.p>S.pmax?(t.p-S.pmax)*2:0)+(t.k>S.kcal?(t.k-S.kcal)*5:0)+(t.k<S.kmin?(S.kmin-t.k)*.4:0)+(t.c>S.carb?(t.c-S.carb)*4:0);
+const random=a=>a[Math.floor(Math.random()*a.length)];
+function pools(){
+ const ex=S.excl.split(',').map(norm).filter(Boolean);
+ const meat=/\b(chicken|beef|pork|bacon|ham|turkey|duck|lamb|sausage|steak|meat|fish|salmon|tuna|shrimp|prawn|anchov|cod|tilapia|poultry|veal|prosciutto|pepperoni)\b/i;
+ const ok=DB.filter(r=>!ex.some(e=>r.i.some(x=>norm(x).includes(e))));
+ const P={};
+ for(const k of ['b','s','l','d']){
+   P[k]=ok.filter(r=>{
+     if(!r.sl.includes(k))return false;
+     // Meat/fish is permitted only for lunch. For other meals use vegetarian recipes.
+     if(k!=='l' && r.i.some(x=>meat.test(x)))return false;
+     if(k==='b' && !(r.tags.includes('breakfast')||r.tags.includes('brunch')))return false;
+     if(k==='l' && !(r.tags.includes('main-dish')||r.tags.includes('lunch')||r.tags.includes('main-course')))return false;
+     if(k==='d' && !(r.tags.includes('dinner')||r.tags.includes('supper')||r.tags.includes('main-dish')||r.tags.includes('main-course')))return false;
+     return true;
+   });
+ }
+ return P;
+}
+function recipeScore(r){return r.i.filter(x=>has(x)).length/Math.max(1,r.i.length)+(S.fav? r.i.filter(x=>S.fav.split(',').some(f=>norm(x).includes(norm(f.trim())))).length*.1:0)}
+function fit(meals){let fs=meals.map(()=>1);for(let pass=0;pass<4;pass++)for(let j=0;j<meals.length;j++){let best=fs[j],bv=Infinity;for(const f of [.5,.75,1,1.25,1.5,2]){const g=[...fs];g[j]=f;const t=total(meals,g),v=penalty(t);if(v<bv){bv=v;best=f}}fs[j]=best}return fs}
+function makeDay(P,used){const meals=[];for(const k of KEY){let candidates=P[k].filter(r=>!used.has(r.id));if(!candidates.length)candidates=P[k];if(!candidates.length)return null;candidates.sort((a,b)=>recipeScore(b)-recipeScore(a));const top=candidates.slice(0,Math.min(12,candidates.length));meals.push(random(top))}const fs=fit(meals);return{m:meals,f:fs,bo:[]}}
+function gen(){if(!DB.length)return;const P=pools();const missing=Object.entries({b:'Frühstück',s:'Snacks',l:'Mittagessen',d:'Abendessen'}).filter(([k])=>!P[k].length).map(x=>x[1]);if(missing.length){alert('Keine passenden Rezepte für: '+missing.join(', ')+'. Prüfe die CSV-Slot-Werte und ausgeschlossene Zutaten.');return}
+const used=new Set(),days=[];for(let i=0;i<3;i++){const d=makeDay(P,used);if(!d)break;d.m.forEach(r=>used.add(r.id));days.push(d)}S.plan={t:Date.now(),days};S.checked={};save();render()}
+function reroll(di,j){const d=S.plan.days[di],P=pools(),used=new Set(S.plan.days.flatMap(x=>x.m.map(r=>r.id))),c=P[KEY[j]].filter(r=>!used.has(r.id));if(!c.length){alert('Keine weiteren passenden Rezepte verfügbar.');return}d.m[j]=random(c);d.f=fit(d.m);save();render()}
+function totalsForDay(d){const t=total(d.m,d.f);return{...t,k:Math.round(t.k),p:Math.round(t.p),c:Math.round(t.c)}}
+function dayHtml(d,i){const t=totalsForDay(d),dt=new Date(S.plan.t+i*864e5).toLocaleDateString('de-CH',{weekday:'long',day:'numeric',month:'long'});let h=`<div class="card"><h2>${esc(dt)}</h2><div class="pro">${t.p} g <small>Protein · Ziel ${S.pmin}–${S.pmax} g</small></div><div class="sm ${t.k>S.kcal?'over':''}">${t.k} / ${S.kcal} kcal · <span class="${t.c>S.carb?'over':''}">${t.c} / ${S.carb} g Kohlenhydrate</span></div>`;
+d.m.forEach((r,j)=>{const f=d.f[j];h+=`<div class="meal"><div><span class="sl">${slots[j][0]} · ${f} Portion(en)</span><details><summary>${esc(r.t)}</summary><p class="sm"><b>Zutaten:</b> ${esc(r.i.join(', '))}</p><p class="sm">${esc(r.s||'Keine Zubereitungsschritte in der CSV hinterlegt.')}</p>${r.url?`<p><a href="${esc(r.url)}" target="_blank" rel="noopener">Originalrezept öffnen</a></p>`:''}</details><div class="sm mut">${Math.round(r.k*f)} kcal · ${Math.round(r.p*f)} g Protein · ${Math.round(r.c*f)} g KH ${r.m?'· '+r.m+' Min.':''}</div><div class="sm mut">${r.i.filter(has).length}/${r.i.length} Zutaten im Vorrat</div></div><button class="rr" data-d="${i}" data-j="${j}" aria-label="Rezept austauschen">↻</button></div>`});
+if(t.p<S.pmin)h+=`<p class="note">Protein-Ziel wird voraussichtlich um ${S.pmin-t.p} g verfehlt. Ergänze z. B. Skyr, Magerquark oder Tofu und prüfe die Nährwerte.</p>`;
+if(t.k>S.kcal||t.c>S.carb)h+='<p class="note">Mindestens ein Tageslimit ist überschritten. Tausche Gerichte aus oder passe Portionen an.</p>';return h+'</div>'}
+function rPlan(){const v=$('#v-plan');if(!DB.length){v.innerHTML=`<p class="note">${esc(DBERR||'Lade Rezepte …')}</p><p class="sm mut">Erwartet werden rezept_index.json und Rezeptdateien wie rezepte_001.csv im selben GitHub-Pages-Ordner.</p>`;return}let h=`<p class="mut sm">${DB.length} Rezepte geladen</p><button class="pri" id="gen">${S.plan?'Neuen 3-Tage-Plan erstellen':'3-Tage-Plan erstellen'}</button>`;
+if(S.plan?.days?.length)S.plan.days.forEach((d,i)=>h+=dayHtml(d,i));else h+='<p class="mut">Noch kein Plan erstellt.</p>';h+='<p class="sm mut">Nährwerte werden aus den CSV-Dateien übernommen und sind nur so genau wie deren Quelldaten. Das Programm garantiert die Zielwerte nicht, sondern zeigt Abweichungen an.</p>';v.innerHTML=h;$('#gen').onclick=gen;v.querySelectorAll('.rr').forEach(b=>b.onclick=()=>reroll(+b.dataset.d,+b.dataset.j))}
+function rPan(){const v=$('#v-pan');v.innerHTML=`<h2>Mein Vorrat zu Hause</h2><p class="sm mut">Lebensmittel und Mengen werden mit Google Sheets synchronisiert, wenn die Verbindung eingerichtet ist. Ohne Verbindung bleiben sie nur auf diesem Gerät gespeichert.</p><div class="row"><input id="pn" type="text" placeholder="Lebensmittel, z. B. Skyr"><input id="pq" type="text" placeholder="Menge, z. B. 500 g"></div><button class="pri" id="addpan" style="margin-top:8px">Zum Vorrat hinzufügen</button><div id="panitems">${S.pantry.map((p,i)=>`<div class="it"><span></span><span class="iname">${esc(p.name)}</span><input class="qty" data-i="${i}" value="${esc(p.qty||'')}" aria-label="Menge"><button class="rr" data-del="${i}">×</button></div>`).join('')||'<p class="mut">Noch keine Vorräte erfasst.</p>'}</div><button class="pri" id="savepan" style="margin-top:12px">Vorrat speichern / synchronisieren</button>`;
+$('#addpan').onclick=()=>{const name=$('#pn').value.trim(),qty=$('#pq').value.trim();if(!name)return;const old=S.pantry.find(p=>norm(p.name)===norm(name));if(old)old.qty=qty||old.qty;else S.pantry.push({name,qty});save();rPan()};v.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{S.pantry.splice(+b.dataset.del,1);save();rPan()});v.querySelectorAll('[data-i]').forEach(i=>i.onchange=()=>{S.pantry[+i.dataset.i].qty=i.value;save()});$('#savepan').onclick=async()=>{await syncToSheet();render()}}
+function buildShopping(){const map=new Map();if(S.plan?.days)S.plan.days.forEach(d=>d.m.forEach((r,j)=>r.i.forEach(x=>{if(!x||SKIP.test(x)||has(x))return;const key=norm(x);if(!map.has(key))map.set(key,{name:x,qty:S.checked['qty:'+key]||'',checked:!!S.checked[key],count:0});map.get(key).count++})));return [...map.values()].sort((a,b)=>a.name.localeCompare(b.name,'de'))}
+function rShop(){const v=$('#v-shop'),items=buildShopping();let h=`<h2>Einkaufsliste für den 3-Tage-Plan</h2><p class="sm mut">Mengen aus den Rezeptdateien sind nur verfügbar, wenn die CSV Zutaten mit Mengen enthält. Trage die gewünschte Einkaufsmenge ein. Gekaufte Produkte können direkt als Vorrat übernommen werden.</p>`;
+if(!S.plan?.days?.length)h+='<p class="mut">Erstelle zuerst einen Plan.</p>';
+h+=items.map((x,i)=>`<div class="it ${x.checked?'d':''}"><input type="checkbox" data-check="${esc(norm(x.name))}" ${x.checked?'checked':''}><span class="iname">${esc(x.name)} <span class="sm mut">${x.count} Rezept(e)</span></span><input class="qty" type="text" data-qty="${i}" placeholder="Menge" value="${esc(x.qty)}"><button class="rr" data-buy="${i}" title="In Vorrat übernehmen">＋</button></div>`).join('');
+h+='<div class="two" style="margin-top:12px"><button class="sec" id="savshop">Einkaufsliste speichern</button><button class="pri" id="buyall">Abgehakte in Vorrat</button></div><p class="sm mut" id="shopstatus"></p>';
+v.innerHTML=h;
+v.querySelectorAll('[data-check]').forEach(c=>c.onchange=()=>{S.checked[c.dataset.check]=c.checked;save();rShop()});
+v.querySelectorAll('[data-qty]').forEach(inp=>inp.onchange=()=>{const item=items[+inp.dataset.qty];S.checked['qty:'+norm(item.name)]=inp.value;save()});
+v.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{const item=items[+b.dataset.buy],qty=v.querySelector(`[data-qty="${b.dataset.buy}"]`).value;addToPantry(item.name,qty);save();rPan();rShop()});
+$('#savshop').onclick=async()=>{await syncToSheet();$('#shopstatus').textContent=S.syncStatus||'Gespeichert.'};
+$('#buyall').onclick=async()=>{items.forEach((item,i)=>{if(S.checked[norm(item.name)])addToPantry(item.name,v.querySelector(`[data-qty="${i}"]`)?.value||S.checked['qty:'+norm(item.name)]||'')});save();await syncToSheet();render()};
+}
+function addToPantry(name,qty){const old=S.pantry.find(p=>norm(p.name)===norm(name));if(old)old.qty=qty||old.qty;else S.pantry.push({name,qty:qty||''});}
+function rSet(){const f=(k,l,t='number')=>`<label class="f" for="s-${k}">${l}</label><input id="s-${k}" data-k="${k}" type="${t}" value="${esc(S[k])}">`;
+$('#v-set').innerHTML=`<h2>Einstellungen</h2><p class="sm mut">Grenzwerte und gemeinsame Vorratssynchronisierung.</p>${f('kcal','Max. kcal pro Tag')}${f('kmin','Kalorien-Untergrenze (Orientierung)')}${f('carb','Max. Kohlenhydrate (g)')}${f('pmin','Protein mindestens (g)')}${f('pmax','Protein höchstens (g)')}${f('fav','Lieblingszutaten (Komma getrennt)','text')}${f('excl','Ausgeschlossene Zutaten (Komma getrennt)','text')}<label class="f" for="sheetUrl">Google-Apps-Script-Web-App-URL</label><input id="sheetUrl" type="text" value="${esc(S.sheetUrl)}" placeholder="https://script.google.com/macros/s/.../exec"><label class="f" for="syncKey">Gemeinsamer Schlüssel (optional)</label><input id="syncKey" type="password" value="${esc(S.syncKey)}" placeholder="Wie im Apps Script eingerichtet"><button class="pri" id="syncnow" style="margin-top:12px">Google Sheets verbinden / synchronisieren</button><p class="note">Die Google-Sheets-Synchronisierung benötigt das separate Apps-Script-Backend aus der Begleitdatei. Eine URL allein reicht nicht. Ohne Backend funktioniert die App lokal auf diesem Browser.</p><p class="sm mut">${DB.length} Rezepte geladen · ${esc(S.syncStatus||'Noch nicht synchronisiert')}</p>`;
+document.querySelectorAll('#v-set [data-k]').forEach(i=>i.onchange=()=>{S[i.dataset.k]=i.type==='number'?(+i.value||0):i.value;save()});$('#sheetUrl').onchange=e=>{S.sheetUrl=e.target.value.trim();save()};$('#syncKey').onchange=e=>{S.syncKey=e.target.value;save()};$('#syncnow').onclick=async()=>{await syncFromSheet();await syncToSheet();render()}}
+async function api(action,payload={}){if(!S.sheetUrl){S.syncStatus='Keine Apps-Script-URL hinterlegt.';return null}try{const url=S.sheetUrl+(S.sheetUrl.includes('?')?'&':'?')+'action='+encodeURIComponent(action)+'&key='+encodeURIComponent(S.syncKey||'');if(action==='load'){const r=await fetch(url);if(!r.ok)throw Error('HTTP '+r.status);return await r.json()}const r=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,key:S.syncKey||'',...payload})});if(!r.ok)throw Error('HTTP '+r.status);return await r.json()}catch(e){S.syncStatus='Synchronisierung fehlgeschlagen: '+e.message;save();return null}}
+async function syncFromSheet(){const data=await api('load');if(data&&data.ok){if(Array.isArray(data.pantry))S.pantry=data.pantry;if(data.checked&&typeof data.checked==='object')S.checked=data.checked;S.syncStatus='Aus Google Sheets geladen';S.lastSync=new Date().toISOString();save()}else if(data)S.syncStatus=data.error||'Laden fehlgeschlagen';}
+async function syncToSheet(){const data=await api('save',{pantry:S.pantry,checked:S.checked,shopping:buildShopping().map(x=>({...x,checked:!!S.checked[norm(x.name)],qty:S.checked['qty:'+norm(x.name)]||''}))});if(data&&data.ok){S.syncStatus='Mit Google Sheets synchronisiert';S.lastSync=new Date().toISOString();save()}else if(data&&data.error)S.syncStatus=data.error;else if(!S.syncStatus)S.syncStatus='Nicht synchronisiert';}
+function render(){rPlan();rPan();rShop();rSet()}
+function tab(t){document.querySelectorAll('.v').forEach(e=>e.classList.toggle('on',e.id==='v-'+t));document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===t));render()}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>tab(b.dataset.t));
+render();loadDB();if(S.sheetUrl)syncFromSheet().then(render);
+</script></body></html>
